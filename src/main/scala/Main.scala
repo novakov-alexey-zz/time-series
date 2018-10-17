@@ -8,20 +8,20 @@ object Main extends App {
 
   override def main(args: Array[String]): Unit = {
     args.headOption match {
-      case Some(filePath) if Files.exists(Paths.get(filePath)) => run(filePath)
+      case Some(filePath) if Files.exists(Paths.get(filePath)) => run(filePath, "output.txt")
       case None => println("Please enter path to existing data input file")
     }
   }
 
-  private def run(filePath: String): Unit = {
-    val observations = Source.fromFile(filePath).getLines()
+  private def run(inFilePath: String, outFilePath: String): Unit = {
+    val observations = Source.fromFile(inFilePath).getLines()
       .map { l =>
         val row = l.split("\t")
         Observations(row(0).toLong, row(1).toDouble)
       }
 
     val windowSize = 60
-    val bw = new BufferedWriter(new FileWriter(new File("output.txt")))
+    val bw = new BufferedWriter(new FileWriter(new File(outFilePath)))
 
     bw.write("Time\tValue\tN_O\tRoll_Sum\tMin_Value\tMax_Value\n")
 
@@ -61,5 +61,6 @@ object Main extends App {
     }
 
     bw.close()
+    println(s"See result at: $outFilePath")
   }
 }
