@@ -32,23 +32,21 @@ object Main extends App {
         def calcStats(st: Stats, ss: List[Observations]): (Stats, List[Observations]) = {
           if (ss.isEmpty || ob.time - ss.head.time <= windowSize) {
             val window = ss :+ ob
-            val newStats = st
-              .copy(
-                st.sum + ob.value,
-                Math.min(st.min, ob.value),
-                Math.max(st.max, ob.value),
-                window.length
-              )
+            val newStats = Stats(
+              st.sum + ob.value,
+              Math.min(st.min, ob.value),
+              Math.max(st.max, ob.value),
+              window.length
+            )
             (newStats, window)
           }
           else {
-            val newStats = st
-              .copy(
-                st.sum - ss.head.value,
-                if (ss.tail.nonEmpty) ss.tail.map(_.value).min else ob.value,
-                if (ss.tail.nonEmpty) ss.tail.map(_.value).max else ob.value,
-                ss.tail.length - 1
-              )
+            val newStats = Stats(
+              st.sum - ss.head.value,
+              if (ss.tail.nonEmpty) ss.tail.map(_.value).min else ob.value,
+              if (ss.tail.nonEmpty) ss.tail.map(_.value).max else ob.value,
+              ss.tail.length - 1
+            )
             calcStats(newStats, ss.tail)
           }
         }
