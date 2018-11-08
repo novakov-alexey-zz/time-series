@@ -5,6 +5,7 @@ import scala.annotation.tailrec
 import scala.io.Source
 
 object Main extends App {
+  val windowSize = 60
 
   override def main(args: Array[String]): Unit = {
     args.headOption match {
@@ -14,16 +15,15 @@ object Main extends App {
   }
 
   private def run(inFilePath: String, outFilePath: String): Unit = {
-    val observations = Source.fromFile(inFilePath).getLines()
-      .map { l =>
-        val row = l.split("\t")
-        Observations(row(0).toLong, row(1).toDouble)
-      }
-
-    val windowSize = 60
     val bw = new BufferedWriter(new FileWriter(new File(outFilePath)))
-
     bw.write("Time\tValue\tN_O\tRoll_Sum\tMin_Value\tMax_Value\n")
+
+    val observations = Source.fromFile(inFilePath)
+      .getLines()
+      .flatMap(_.split("\t").toList match {
+        case time :: value :: Nil => Some(Observations(time.toLong, value.toDouble))
+        case _ => None
+      })
 
     observations.foldLeft(List[Observations]() -> Stats(0, Int.MaxValue, Int.MinValue, 0)) {
       case ((series, stats), ob) =>

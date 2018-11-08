@@ -3,7 +3,7 @@
 There is a simple program which computes time series statistics based on sliding time window of 60 seconds
 
 ## Run
-###Input parameters:
+### Input parameters:
 1. _input file path_: absolute or relative file path which can be resolved by FS
 
 
