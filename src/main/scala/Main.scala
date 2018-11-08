@@ -14,7 +14,7 @@ object Main extends App {
     }
   }
 
-  private def run(inFilePath: String, outFilePath: String): Unit = {
+  def run(inFilePath: String, outFilePath: String): Unit = {
     val bw = new BufferedWriter(new FileWriter(new File(outFilePath)))
     bw.write("Time\tValue\tN_O\tRoll_Sum\tMin_Value\tMax_Value\n")
 
@@ -25,13 +25,24 @@ object Main extends App {
         case _ => None
       })
 
+    calc(observations, (ob, stats) => {
+      bw.write(
+        f"${ob.time}\t${ob.value}\t${stats.count}\t${stats.sum}%.5f\t${stats.min}%.5f\t${stats.max}%.5f\n"
+      )
+    })
+
+    bw.close()
+    println(s"See result at: $outFilePath")
+  }
+
+  def calc(observations: Iterator[Observations], f: (Observations, Stats) => Unit): Unit = {
     observations.foldLeft(List[Observations]() -> Stats(0, Int.MaxValue, Int.MinValue, 0)) {
       case ((series, stats), ob) =>
 
         @tailrec
-        def calcStats(st: Stats, ss: List[Observations]): (Stats, List[Observations]) = {
-          if (ss.isEmpty || ob.time - ss.head.time <= windowSize) {
-            val window = ss :+ ob
+        def calcStats(st: Stats, obs: List[Observations]): (Stats, List[Observations]) = {
+          if (obs.isEmpty || ob.time - obs.head.time <= windowSize) {
+            val window = obs :+ ob
             val newStats = Stats(
               st.sum + ob.value,
               Math.min(st.min, ob.value),
@@ -42,23 +53,18 @@ object Main extends App {
           }
           else {
             val newStats = Stats(
-              st.sum - ss.head.value,
-              if (ss.tail.nonEmpty) ss.tail.map(_.value).min else ob.value,
-              if (ss.tail.nonEmpty) ss.tail.map(_.value).max else ob.value,
-              ss.tail.length - 1
+              st.sum - obs.head.value,
+              if (obs.tail.nonEmpty) obs.tail.map(_.value).min else ob.value,
+              if (obs.tail.nonEmpty) obs.tail.map(_.value).max else ob.value,
+              obs.tail.length - 1
             )
-            calcStats(newStats, ss.tail)
+            calcStats(newStats, obs.tail)
           }
         }
 
         val (newStats, newSeries) = calcStats(stats, series)
-        bw.write(
-          f"${ob.time}\t${ob.value}\t${newStats.count}\t${newStats.sum}%.5f\t${newStats.min}%.5f\t${newStats.max}%.5f\n"
-        )
+        f(ob, newStats)
         (newSeries, newStats)
     }
-
-    bw.close()
-    println(s"See result at: $outFilePath")
   }
 }
