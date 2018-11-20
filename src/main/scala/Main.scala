@@ -1,11 +1,16 @@
 import java.io.{BufferedWriter, File, FileWriter}
 import java.nio.file.{Files, Paths}
 
+import Config._
+
 import scala.annotation.tailrec
 import scala.io.Source
 
-object Main extends App {
+object Config {
   val windowSize = 60
+}
+
+object Main extends App {
 
   override def main(args: Array[String]): Unit = {
     args.headOption match {
@@ -21,44 +26,43 @@ object Main extends App {
     val observations = Source.fromFile(inFilePath)
       .getLines()
       .flatMap(_.split("\t").toList match {
-        case time :: value :: Nil => Some(Observations(time.toLong, value.toDouble))
+        case time :: value :: Nil => Some(Observation(time.toLong, value.toDouble))
         case _ => None
       })
 
-    calc(observations, (ob, stats) => {
-      bw.write(
-        f"${ob.time}\t${ob.value}\t${stats.count}\t${stats.sum}%.5f\t${stats.min}%.5f\t${stats.max}%.5f\n"
-      )
-    })
+    val fileWriter: (Observation, WindowStats) => Unit = (ob, stats) => {
+      bw.write(f"${ob.time}\t${ob.value}\t${stats.count}\t${stats.sum}%.5f\t${stats.min}%.5f\t${stats.max}%.5f\n")
+    }
+    calc(observations, fileWriter)
 
     bw.close()
     println(s"See result at: $outFilePath")
   }
 
-  def calc(observations: Iterator[Observations], f: (Observations, Stats) => Unit): Unit = {
-    observations.foldLeft(List[Observations]() -> Stats(0, Int.MaxValue, Int.MinValue, 0)) {
+  def calc(observations: Iterator[Observation], f: (Observation, WindowStats) => Unit): Unit = {
+    observations.foldLeft(List[Observation]() -> WindowStats(0, Int.MaxValue, Int.MinValue, 0)) {
       case ((series, stats), ob) =>
 
         @tailrec
-        def calcStats(st: Stats, obs: List[Observations]): (Stats, List[Observations]) = {
-          if (obs.isEmpty || ob.time - obs.head.time <= windowSize) {
-            val window = obs :+ ob
-            val newStats = Stats(
-              st.sum + ob.value,
-              Math.min(st.min, ob.value),
-              Math.max(st.max, ob.value),
-              window.length
-            )
-            (newStats, window)
-          }
-          else {
-            val newStats = Stats(
-              st.sum - obs.head.value,
-              if (obs.tail.nonEmpty) obs.tail.map(_.value).min else ob.value,
-              if (obs.tail.nonEmpty) obs.tail.map(_.value).max else ob.value,
-              obs.tail.length - 1
-            )
-            calcStats(newStats, obs.tail)
+        def calcStats(st: WindowStats, obs: List[Observation]): (WindowStats, List[Observation]) = {
+          obs match {
+            case h :: t if ob.time - obs.head.time > windowSize =>
+              val newStats = WindowStats(
+                st.sum - h.value,
+                if (t.nonEmpty) t.map(_.value).min else ob.value,
+                if (t.nonEmpty) t.map(_.value).max else ob.value,
+                t.length - 1
+              )
+              calcStats(newStats, t)
+            case _ =>
+              val window = obs :+ ob
+              val newStats = WindowStats(
+                st.sum + ob.value,
+                Math.min(st.min, ob.value),
+                Math.max(st.max, ob.value),
+                window.length
+              )
+              (newStats, window)
           }
         }
 
